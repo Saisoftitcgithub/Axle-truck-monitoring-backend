@@ -18,9 +18,10 @@ build/
 *.db
 *.sqlite3
 
-# IDE
+# IDE / editor
 .idea/
 .vscode/
+.cursor/
 *.swp
 *.swo
 
