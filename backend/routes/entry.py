@@ -2,6 +2,9 @@
 Entry ANPR routes: create a new truck movement and trigger axle detection.
 """
 
+import uuid
+from datetime import datetime
+
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -29,8 +32,10 @@ def post_entry_anpr(
     if existing:
         raise HTTPException(status_code=409, detail=f"truck_id '{body.truck_id}' already exists")
 
+    # Server-generated session id for the trip
+    session_id = str(uuid.uuid4())
+
     # Parse entry_time (ISO string) — store as datetime
-    from datetime import datetime
     try:
         entry_dt = datetime.fromisoformat(body.entry_time.replace("Z", "+00:00"))
         # SQLite doesn't store timezone; use naive UTC if needed
@@ -41,6 +46,7 @@ def post_entry_anpr(
 
     movement = TruckMovement(
         truck_id=body.truck_id,
+        session_id=session_id,
         plate_number=body.plate_number,
         entry_time=entry_dt,
         entry_image=body.image_path,
@@ -57,6 +63,7 @@ def post_entry_anpr(
     return {
         "message": "Entry recorded",
         "truck_id": movement.truck_id,
+        "session_id": movement.session_id,
         "status": movement.status,
         "axle_status": movement.axle_status,
     }

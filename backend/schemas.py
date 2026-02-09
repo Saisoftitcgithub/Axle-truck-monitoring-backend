@@ -37,7 +37,7 @@ class UpdateAxleStatusRequest(BaseModel):
     """Request body for POST /update-axle-status."""
 
     truck_id: str
-    axle_status: str = Field(..., description="PENDING | PROCESSING | DONE")
+    axle_status: str = Field(..., description="PENDING | PROCESSING | DONE | FAILED")
 
 
 # ----- Axle detection result -----
@@ -80,6 +80,7 @@ class TruckMovementResponse(BaseModel):
     """Full truck movement record (for responses if needed)."""
 
     truck_id: str
+    session_id: str
     plate_number: str
     entry_time: datetime
     entry_image: Optional[str] = None
