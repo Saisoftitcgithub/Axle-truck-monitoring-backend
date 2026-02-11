@@ -4,7 +4,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI
 
 from database import init_db
-from routes import entry, axle, exit as exit_router
+from routes import entry, axle, exit as exit_router, db as db_router
 from scheduler_job import run_hourly_job
 
 scheduler = BackgroundScheduler()
@@ -29,6 +29,7 @@ app = FastAPI(
 app.include_router(entry.router)
 app.include_router(axle.router)
 app.include_router(exit_router.router)
+app.include_router(db_router.router)
 
 
 @app.get("/")

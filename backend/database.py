@@ -4,8 +4,9 @@ Uses PostgreSQL when DATABASE_URL is set; falls back to SQLite for local testing
 """
 
 import os
+import uuid
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy.pool import StaticPool
 
@@ -15,7 +16,9 @@ if _database_url and str(_database_url).strip():
     SQLALCHEMY_DATABASE_URL = _database_url.strip()
     engine_kw = {"pool_pre_ping": True, "echo": False}
 else:
-    SQLALCHEMY_DATABASE_URL = "sqlite:///./truck_movements.db"
+    # Use absolute path so same DB is used regardless of cwd
+    _base = os.path.dirname(os.path.abspath(__file__))
+    SQLALCHEMY_DATABASE_URL = f"sqlite:///{os.path.join(_base, 'truck_movements.db')}"
     engine_kw = {
         "connect_args": {"check_same_thread": False},
         "poolclass": StaticPool,
@@ -39,8 +42,31 @@ def get_db():
         db.close()
 
 
+def _migrate_truck_movements_session_id():
+    """Add session_id to truck_movements if missing. Safe to run every startup."""
+    if "sqlite" not in SQLALCHEMY_DATABASE_URL:
+        return
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("ALTER TABLE truck_movements ADD COLUMN session_id VARCHAR(36)"))
+            conn.commit()
+    except Exception as e:
+        if "duplicate column name" not in str(e).lower():
+            raise
+    try:
+        with engine.connect() as conn:
+            r = conn.execute(text("SELECT truck_id FROM truck_movements WHERE session_id IS NULL OR session_id = ''"))
+            for row in r.fetchall():
+                conn.execute(
+                    text("UPDATE truck_movements SET session_id = :uid WHERE truck_id = :tid"),
+                    {"uid": str(uuid.uuid4()), "tid": row[0]},
+                )
+            conn.commit()
+    except Exception:
+        pass
+
+
 def init_db():
-    """
-    Create all tables in the database. Called on application startup.
-    """
+    """Create all tables and run migrations. Called on application startup."""
     Base.metadata.create_all(bind=engine)
+    _migrate_truck_movements_session_id()

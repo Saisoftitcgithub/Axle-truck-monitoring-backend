@@ -12,7 +12,7 @@ from schemas import UpdateAxleStatusRequest, AxleDetectionRequest
 router = APIRouter(tags=["Axle"])
 
 
-@router.post("/update-axle-status")
+@router.post("/update-axle-status", include_in_schema=False)
 def post_update_axle_status(
     body: UpdateAxleStatusRequest,
     db: Session = Depends(get_db),
@@ -29,7 +29,7 @@ def post_update_axle_status(
     return {"message": "axle_status updated", "truck_id": body.truck_id, "axle_status": body.axle_status}
 
 
-@router.post("/axle-detection")
+@router.post("/axle-detection", include_in_schema=False)
 def post_axle_detection(
     body: AxleDetectionRequest,
     db: Session = Depends(get_db),
