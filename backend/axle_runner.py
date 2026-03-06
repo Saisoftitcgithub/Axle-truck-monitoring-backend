@@ -23,6 +23,7 @@ MODEL_PATH = os.environ.get(
     r"D:\Saisoft\Axle_Detection\Axle Detection with full truck\runs\axle_truck_detection_full_optimized\weights\best.pt",
 )
 AXLE_VIDEO_PATH = os.environ.get("AXLE_VIDEO_PATH", "")
+# Must match the server URL/port so background axle task can POST to /update-axle-status and /axle-detection
 API_BASE = os.environ.get("TRUCK_API_BASE", "http://127.0.0.1:8000")
 
 HTTP_RETRIES = 3

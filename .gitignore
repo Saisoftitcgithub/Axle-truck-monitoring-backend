@@ -18,6 +18,10 @@ build/
 *.db
 *.sqlite3
 
+# Local output / storage (videos, images)
+output/
+storage/
+
 # IDE
 .idea/
 .vscode/

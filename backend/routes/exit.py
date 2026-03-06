@@ -15,6 +15,21 @@ from schemas import ExitANPRRequest
 router = APIRouter(prefix="/exit-anpr", tags=["Exit ANPR"])
 
 
+@router.get("", status_code=200)
+def get_exit_anpr_help():
+    """This endpoint expects POST with JSON body. Use POST with plate_number, exit_time, image_path."""
+    return {
+        "message": "Use POST to register truck exit",
+        "method": "POST",
+        "body": {
+            "plate_number": "string",
+            "exit_time": "ISO datetime (e.g. 2026-02-03T10:25:03)",
+            "image_path": "string",
+        },
+        "docs": "/docs",
+    }
+
+
 def _parse_exit_time(exit_time_str: str) -> datetime:
     dt = datetime.fromisoformat(exit_time_str.replace("Z", "+00:00"))
     if dt.tzinfo:
