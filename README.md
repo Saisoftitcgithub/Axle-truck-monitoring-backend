@@ -21,13 +21,10 @@ Axle Detection backend/
 │   │   ├── axle.py             # POST /update-axle-status, POST /axle-detection
 │   │   ├── exit.py             # POST /exit-anpr
 │   │   └── db.py               # GET /db/tables, /db/tables/counts, /db/tables/data
-│   ├── setup_postgres_simple.py # One-time Postgres DB setup (used by START_WITH_POSTGRES.bat)
 │   └── truck_movements.db      # Created when using SQLite (gitignored)
 ├── requirements.txt            # Python dependencies
-├── .env.example                # Copy to .env and set DATABASE_URL, AXLE_*, etc.
 ├── run.bat                     # Start server (Windows), port 8000
-├── run.sh                      # Start server (Linux/macOS)
-├── START_WITH_POSTGRES.bat     # Setup Postgres DB + start server on port 8002
+├── run_with_postgres.bat       # Start server with Docker Postgres on port 8002
 ├── docker-compose.yml          # PostgreSQL 15 (port 5433, truck_user)
 └── README.md                   # This file
 ```
@@ -44,31 +41,12 @@ From the **project root**:
 pip install -r requirements.txt
 ```
 
-### 2. (Optional) Environment
-
-Copy `.env.example` to `.env` and set variables if needed. If you skip this, the app uses **SQLite** (`backend/truck_movements.db`) and default axle paths.
-
-```bash
-copy .env.example .env
-# Edit .env: DATABASE_URL for PostgreSQL, or leave unset for SQLite
-```
-
-To load `.env` in the shell (e.g. for `uvicorn`), use a helper or set variables manually:
-
-```bash
-# Windows (PowerShell)
-Get-Content .env | ForEach-Object { if ($_ -match '^([^#][^=]+)=(.*)$') { [Environment]::SetEnvironmentVariable($matches[1].Trim(), $matches[2].Trim(), 'Process') } }
-
-# Linux/macOS (with export in .env)
-set -a && source .env && set +a
-```
-
-### 3. Run the server
+### 2. Run the server
 
 **Option A — From project root (recommended):**
 
-- **Windows:** double-click `run.bat` or run `run.bat` in a terminal  
-- **Linux/macOS:** `./run.sh` or `bash run.sh`
+- **SQLite (no Postgres):** run `run.bat` (port 8000)
+- **Docker Postgres:** run `run_with_postgres.bat` (port 8002)
 
 **Option B — From backend directory:**
 
@@ -88,24 +66,6 @@ uvicorn main:app --reload --host 127.0.0.1 --port 8000
 ### SQLite (default)
 
 If `DATABASE_URL` is not set, the app uses SQLite and creates `backend/truck_movements.db`. No extra setup.
-
-### PostgreSQL
-
-1. Create a database and user (e.g. in pgAdmin or psql):
-
-   ```sql
-   CREATE DATABASE truck_movements;
-   CREATE USER your_user WITH PASSWORD 'your_password';
-   GRANT ALL PRIVILEGES ON DATABASE truck_movements TO your_user;
-   ```
-
-2. Set the URL (in `.env` or in the shell):
-
-   ```bash
-   DATABASE_URL=postgresql://your_user:your_password@localhost:5432/truck_movements
-   ```
-
-3. Run the app; tables are created on startup.
 
 ### Docker Compose (PostgreSQL)
 
@@ -127,10 +87,6 @@ DATABASE_URL=postgresql://truck_user:truck_password_123@localhost:5433/truck_mov
 
 Then start the app (e.g. `run.bat` or `cd backend && uvicorn main:app --reload`).
 
-### START_WITH_POSTGRES.bat (Windows)
-
-Runs `backend/setup_postgres_simple.py` (creates DB if needed), sets `DATABASE_URL` for local PostgreSQL on port 5432, and starts the server on **port 8002**. You will be prompted for the `postgres` user password.
-
 ---
 
 ## Schema
@@ -148,8 +104,6 @@ Tables: **truck_movements** (active trips), **truck_movements_completed** (exite
 | **MODEL_PATH**       | Path to YOLO best.pt weights.                                        |
 | **AXLE_VIDEO_PATH**   | Video file path for axle detection (script --video).                |
 | **TRUCK_API_BASE**   | Base URL for axle_runner internal API (default http://127.0.0.1:8000). |
-
-See `.env.example` for examples.
 
 ---
 
@@ -169,6 +123,66 @@ Internal (used by axle_runner, not in OpenAPI):
 - POST `/axle-detection` — submit `axle_count`, `processed_time`; set AXLE_DONE.
 
 API docs and interactive schema: **http://127.0.0.1:8000/docs**
+
+---
+
+## Full manual test (image + video)
+
+The backend **does not save/copy** image/video files. It only stores the **path string** you send in the DB.
+
+### 1. Start Docker Postgres
+
+```powershell
+cd "d:\Saisoft\Axle Detection backend"
+docker-compose up -d
+```
+
+### 2. Start API (port 8002) with video for axle detection
+
+```powershell
+cd "d:\Saisoft\Axle Detection backend\backend"
+$env:DATABASE_URL = "postgresql://truck_user:truck_password_123@localhost:5433/truck_movements"
+$env:TRUCK_API_BASE = "http://127.0.0.1:8002"
+$env:AXLE_VIDEO_PATH = "D:\Saisoft\Axle_Detection\Site truck video\Test2.mp4"
+python -m uvicorn main:app --reload --host 127.0.0.1 --port 8002
+```
+
+### 3. Entry (register truck)
+
+Open `http://127.0.0.1:8002/docs` → **POST /entry-anpr** and send:
+
+```json
+{
+  "truck_id": "TRK-TEST-001",
+  "plate_number": "TN99DEMO001",
+  "entry_time": "2026-02-03T10:15:22",
+  "image_path": "D:\\Saisoft\\Axle_Detection\\New images 3\\3.jpg"
+}
+```
+
+### 4. Wait for axle_count
+
+Axle runs in the background. Check:
+- `http://127.0.0.1:8002/db/tables/truck_movements/data`
+
+Look for your `truck_id` and verify `axle_status` becomes `DONE` and `axle_count` is set.
+
+### 5. Exit (register truck exit)
+
+In docs, **POST /exit-anpr**:
+
+```json
+{
+  "plate_number": "TN99DEMO001",
+  "exit_time": "2026-02-03T10:35:00",
+  "image_path": "D:\\Saisoft\\Axle_Detection\\New images 3\\3.jpg"
+}
+```
+
+### 6. See the “image output”
+
+In DB endpoints you will see `entry_image` and `exit_image` fields containing your paths. To view the image, open:
+`D:\Saisoft\Axle_Detection\New images 3\3.jpg`
 
 ---
 
