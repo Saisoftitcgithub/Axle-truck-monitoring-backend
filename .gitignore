@@ -17,10 +17,16 @@ build/
 # SQLite (local dev)
 *.db
 *.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
 
 # Local output / storage (videos, images)
 output/
 storage/
+
+# Non-code documents (keep repo light)
+Camera Datasheet/
 
 # IDE
 .idea/
