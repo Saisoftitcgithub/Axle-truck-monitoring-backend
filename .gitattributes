@@ -1,4 +1,0 @@
-# Normalize line endings so Git does not show spurious changes (U/M)
-* text=auto eol=lf
-*.bat text eol=crlf
-*.cmd text eol=crlf
